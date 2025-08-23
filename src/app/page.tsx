@@ -3,6 +3,7 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Providers from "@/components/Providers";
 import { Button } from "@/components/ui/button";
+import ShowLoginToast from "@/components/showLoginToast";
 
 export default function Home() {
     return (
@@ -51,6 +52,8 @@ export default function Home() {
 
                 </div>
             </div>
+            <ShowLoginToast />
+
         </Providers>
     );
 }

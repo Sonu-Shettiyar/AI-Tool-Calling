@@ -20,7 +20,7 @@ export default async function ChatPage({ searchParams }: ChatPageProps) {
 
 
   if (!session?.user?.id) {
-    redirect("/");
+    redirect("/?unauthenticated=true");
 
   }
 
