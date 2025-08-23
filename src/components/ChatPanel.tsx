@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createChat, appendMessage } from "@/lib/chatHelpers";
+import { WeatherCard, RaceCard, PriceCard } from "@/components";
 
 import ChatSkeleton from "./ChatSkeleton";
 import toast from "react-hot-toast";
@@ -402,10 +403,15 @@ Be conversational and helpful in your responses.`;
     }
   };
 
-  const renderMessage = (message: ChatMessage) => {
+    const renderMessage = (message: ChatMessage) => {
     if (message.role === 'tool' && message.toolKind) {
       switch (message.toolKind) {
-
+        case 'weather':
+          return <WeatherCard weather={message.content as WeatherToolOutput} />;
+        case 'f1':
+          return <RaceCard race={message.content as F1MatchesToolOutput} />;
+        case 'stock':
+          return <PriceCard stock={message.content as StockPriceToolOutput} />;
         default:
           return <div className="text-gray-600">Tool result</div>;
       }
@@ -555,7 +561,7 @@ Be conversational and helpful in your responses.`;
               >
                 <div
                   className={`max-w-3xl rounded-lg p-4 ${message.role === 'user'
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-blue-400 text-white'
                     : message.role === 'tool'
                       ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
@@ -563,7 +569,7 @@ Be conversational and helpful in your responses.`;
                 >
                   {renderMessage(message)}
                   <div className="text-xs opacity-70 mt-2">
-                    {message.timestamp.toLocaleTimeString()}
+                    {message.timestamp.toLocaleString()}
                   </div>
                 </div>
               </div>
