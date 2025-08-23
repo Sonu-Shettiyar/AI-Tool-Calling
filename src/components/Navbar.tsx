@@ -24,23 +24,27 @@ export default function Navbar() {
                     </div>
 
                     <div className="hidden md:flex items-center space-x-8">
-                        <Button
-                            variant={'link'}
-                        >
-                            <Link
-                                href='/'
-                            >
-                                Home
-                            </Link>
-                        </Button>
-                        {session?.user && (
-                            <Link
-                                href="/chat"
-                                className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors"
-                            >
-                                Chat
-                            </Link>
-                        )}
+                        {session?.user ? (
+                            <>
+                                <Button
+                                    variant={'link'}
+                                >
+                                    <Link
+                                        href='/'
+                                    >
+                                        Home
+                                    </Link>
+                                </Button>
+
+                                <Link
+                                    href="/chat"
+                                    className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                                >
+                                    Chat
+                                </Link>
+                            </>
+                        ) : ''}
+
                     </div>
 
                     <div className="flex items-center space-x-4">
