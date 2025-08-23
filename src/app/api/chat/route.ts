@@ -123,12 +123,6 @@ Example: If someone asks "What's the weather in London?", you MUST call getWeath
       }
     });
 
-    console.log('Gemini result:', {
-      hasTextStream: !!result.textStream,
-      usage: result.usage,
-      toolCalls: result.toolCalls || 'None'
-    });
-    
   
     const stream = new ReadableStream({
       async start(controller) {

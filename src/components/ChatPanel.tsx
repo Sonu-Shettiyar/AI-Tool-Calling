@@ -413,7 +413,9 @@ Be conversational and helpful in your responses.`;
         case 'stock':
           return <PriceCard stock={message.content as StockPriceToolOutput} />;
         default:
-          return <div className="text-gray-600">Tool result</div>;
+          return <div className="text-gray-600">
+            Something Went Wrong...!
+          </div>;
       }
     }
 
