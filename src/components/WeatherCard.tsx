@@ -6,7 +6,8 @@ interface WeatherCardProps {
   weather: WeatherToolOutput;
 }
 
-export default function WeatherCard({ weather }: WeatherCardProps) {
+export default function WeatherCard({ weather, ...props }: WeatherCardProps) {
+  console.log({weather, props},'pppp')
   return (
     <Card className="w-full max-w-sm">
       <CardHeader className="text-center">

@@ -120,6 +120,7 @@ Be conversational and helpful in your responses.`;
     setMessages([]);
     try {
       const response = await fetch(`/api/chat/${chatId}/messages`);
+      console.log(response,'repsoen')
       if (response.ok) {
         const chatMessages = await response.json();
         const hydratedMessages: ChatMessage[] = chatMessages.map((msg: {
@@ -403,8 +404,10 @@ Be conversational and helpful in your responses.`;
     }
   };
 
-    const renderMessage = (message: ChatMessage) => {
+  const renderMessage = (message: ChatMessage) => {
+      
     if (message.role === 'tool' && message.toolKind) {
+      console.log(message,'message')
       switch (message.toolKind) {
         case 'weather':
           return <WeatherCard weather={message.content as WeatherToolOutput} />;
