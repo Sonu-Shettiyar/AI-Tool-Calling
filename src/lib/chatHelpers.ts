@@ -37,7 +37,7 @@ export async function createChat(input: CreateChatInput): Promise<ChatDTO> {
   const validatedInput = createChatInputSchema.parse(input);
    
   
-  const title = validatedInput.title || `Chat ${new Date().toLocaleString()}`;
+  const title = validatedInput.title || `Chat ${new Date().toLocaleTimeString()}`;
   
   
   try {
