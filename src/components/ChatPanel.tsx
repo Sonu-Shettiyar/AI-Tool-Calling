@@ -285,6 +285,7 @@ Be conversational and helpful in your responses.`;
         data: any;
       }> = [];
 
+      // Find this section in sendMessage function and replace:
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -302,23 +303,14 @@ Be conversational and helpful in your responses.`;
                 setStreamingContent(fullContent);
               } else if (data.type === 'tool-result') {
                 console.log('Received tool result:', data.toolType, data.data);
+
+                // Store tool results but don't add to messages yet
                 toolResults.push({
                   type: data.toolType,
                   data: data.data
                 });
-
-                // Immediately add the tool result as a message
-                const toolMessage: ChatMessage = {
-                  id: `tool-${Date.now()}-${Math.random()}`,
-                  role: 'tool',
-                  content: data.data,
-                  toolKind: data.toolType,
-                  timestamp: new Date()
-                };
-
-                setMessages(prev => [...prev, toolMessage]);
               } else if (data.type === 'done') {
-                console.log('Stream complete, final tool results:', data.toolResults);
+                console.log('Stream complete');
               }
             } catch (error) {
               console.log('Skip invalid JSON lines:', error)
@@ -327,15 +319,33 @@ Be conversational and helpful in your responses.`;
         }
       }
 
-      // Add the assistant's response
+      // After the streaming loop, add all messages at once:
+      const newMessages: ChatMessage[] = [];
+
+      // Add tool results first
+      for (const toolResult of toolResults) {
+        newMessages.push({
+          id: `tool-${Date.now()}-${Math.random()}`,
+          role: 'tool',
+          content: toolResult.data,
+          toolKind: toolResult.type,
+          timestamp: new Date()
+        });
+      }
+
+      // Add assistant response
       if (fullContent.trim()) {
-        const assistantMessage: ChatMessage = {
+        newMessages.push({
           id: Date.now().toString(),
           role: 'assistant',
           content: fullContent,
           timestamp: new Date()
-        };
-        setMessages(prev => [...prev, assistantMessage]);
+        });
+      }
+
+      // Add all messages at once to prevent flickering
+      if (newMessages.length > 0) {
+        setMessages(prev => [...prev, ...newMessages]);
       }
 
       setStreamingContent("");
@@ -348,6 +358,19 @@ Be conversational and helpful in your responses.`;
           content: { text: originalInput }
         });
 
+        // Persist tool results first
+        for (const toolResult of toolResults) {
+          await appendMessage({
+            chatId: currentChatId,
+            role: 'tool',
+            content: {
+              toolKind: toolResult.type,
+              ...toolResult.data
+            }
+          });
+        }
+
+        // Then persist assistant response
         if (fullContent.trim()) {
           await appendMessage({
             chatId: currentChatId,
@@ -356,24 +379,11 @@ Be conversational and helpful in your responses.`;
           });
         }
 
-        // Persist tool results
-        for (const toolResult of toolResults) {
-          await appendMessage({
-            chatId: currentChatId,
-            role: 'tool',
-            content: {
-              toolKind: toolResult.type,
-              data: toolResult.data
-            }
-          });
-        }
-
         toast.success("Messages saved successfully");
       } catch (error) {
         console.error("Failed to persist messages:", error);
         toast.error("Failed to save messages. Your conversation may not be preserved.");
       }
-
     } catch (error) {
       console.error("Error:", error);
       const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred";
