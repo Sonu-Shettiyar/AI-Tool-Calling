@@ -7,16 +7,14 @@ interface RaceCardProps {
 
 export default function RaceCard({ race }: RaceCardProps) {
   const formatDate = (dateString: string) => {
-    try {
+ 
       return new Date(dateString).toLocaleDateString('en-US', {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
         day: 'numeric'
       });
-    } catch (e) {
-      return dateString;
-    }
+    
   };
 
   // Helper function to extract array data from tool output
