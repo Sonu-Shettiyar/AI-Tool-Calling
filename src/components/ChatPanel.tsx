@@ -97,7 +97,7 @@ Be conversational and helpful in your responses.`;
             content = parsedContent;
             toolKind = parsedContent.toolKind as 'weather' | 'f1' | 'stock';
           } catch (e) {
-            console.error('Failed to parse tool message:', msg.content,e);
+            console.error('Failed to parse tool message:', msg.content, e);
             content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
           }
         } else {
@@ -146,7 +146,7 @@ Be conversational and helpful in your responses.`;
       console.log(response, 'response')
       if (response.ok) {
         const chatMessages = await response.json();
-          const hydratedMessages: ChatMessage[] = chatMessages.map((msg: {
+        const hydratedMessages: ChatMessage[] = chatMessages.map((msg: {
           id: string;
           role: "user" | "assistant" | "tool";
           content: Record<string, unknown> | string;
@@ -161,7 +161,7 @@ Be conversational and helpful in your responses.`;
               content = parsedContent;
               toolKind = parsedContent.toolKind as 'weather' | 'f1' | 'stock';
             } catch (e) {
-              console.error('Failed to parse tool message:', msg.content,e);
+              console.error('Failed to parse tool message:', msg.content, e);
               content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
             }
           } else {
@@ -178,7 +178,7 @@ Be conversational and helpful in your responses.`;
           };
         });
         setMessages(hydratedMessages);
-       
+
       } else {
         toast.error("Failed to load chat messages");
       }
@@ -276,7 +276,7 @@ Be conversational and helpful in your responses.`;
 
     try {
       const apiMessages = prepareMessagesForAPI(messages, originalInput);
-  
+
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
@@ -367,24 +367,24 @@ Be conversational and helpful in your responses.`;
 
       // Persist messages
       try {
-       
+
         await appendMessage({
           chatId: currentChatId,
           role: 'user',
           content: { text: originalInput }
         });
- 
+
         for (const toolResult of toolResults) {
-                  await appendMessage({
-          chatId: currentChatId,
-          role: 'tool',
-          content: {
-            ...(toolResult.data?.data || toolResult.data),  
-            toolKind: toolResult.type
-          }
-        });
+          await appendMessage({
+            chatId: currentChatId,
+            role: 'tool',
+            content: {
+              ...(toolResult.data?.data || toolResult.data),
+              toolKind: toolResult.type
+            }
+          });
         }
- 
+
         if (fullContent.trim()) {
           await appendMessage({
             chatId: currentChatId,
@@ -392,7 +392,7 @@ Be conversational and helpful in your responses.`;
             content: { text: fullContent }
           });
         }
- 
+
       } catch (error) {
         console.error("Failed to persist messages:", error);
         toast.error("Failed to save messages. Your conversation may not be preserved.");
@@ -607,7 +607,11 @@ Be conversational and helpful in your responses.`;
 
           <div ref={messagesEndRef} />
         </div>
-
+        {isLoading && (
+          <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 text-center">
+            Processing your message...
+          </div>
+        )}
         {/* Input */}
         <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
           {
@@ -651,11 +655,7 @@ Be conversational and helpful in your responses.`;
                 </Button>
               </div>
           }
-          {isLoading && (
-            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 text-center">
-              Processing your message...
-            </div>
-          )}
+
         </div>
       </div>
     </div>
