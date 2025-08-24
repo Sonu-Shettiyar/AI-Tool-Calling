@@ -82,14 +82,37 @@ Be conversational and helpful in your responses.`;
 
   useEffect(() => {
     if (initialMessages.length > 0 && selectedChatId) {
-      const hydratedMessages: ChatMessage[] = initialMessages.map(msg => ({
-        id: msg.id,
-        role: msg.role,
-        content: typeof msg.content === 'string' ? msg.content :
-          (msg.content.text as string) || JSON.stringify(msg.content),
-        toolKind: msg.content.toolKind as 'weather' | 'f1' | 'stock' | undefined,
-        timestamp: new Date(msg.createdAt)
-      }));
+      const hydratedMessages: ChatMessage[] = initialMessages.map((msg: {
+        id: string;
+        role: "user" | "assistant" | "tool";
+        content: Record<string, unknown> | string;
+        createdAt: string;
+      }) => {
+        let content: string | WeatherToolOutput | F1MatchesToolOutput | StockPriceToolOutput;
+        let toolKind: 'weather' | 'f1' | 'stock' | undefined;
+
+        if (msg.role === 'tool') {
+          try {
+            const parsedContent = typeof msg.content === 'string' ? JSON.parse(msg.content) : msg.content;
+            content = parsedContent;
+            toolKind = parsedContent.toolKind as 'weather' | 'f1' | 'stock';
+          } catch (e) {
+            console.error('Failed to parse tool message:', msg.content);
+            content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+          }
+        } else {
+          content = typeof msg.content === 'string' ? msg.content :
+            (msg.content.text as string) || JSON.stringify(msg.content);
+        }
+
+        return {
+          id: msg.id,
+          role: msg.role,
+          content,
+          toolKind,
+          timestamp: new Date(msg.createdAt)
+        };
+      });
       setMessages(hydratedMessages);
     }
   }, [initialMessages, selectedChatId]);
@@ -123,23 +146,39 @@ Be conversational and helpful in your responses.`;
       console.log(response, 'response')
       if (response.ok) {
         const chatMessages = await response.json();
-        const hydratedMessages: ChatMessage[] = chatMessages.map((msg: {
+          const hydratedMessages: ChatMessage[] = chatMessages.map((msg: {
           id: string;
           role: "user" | "assistant" | "tool";
-          content: Record<string, unknown>;
+          content: Record<string, unknown> | string;
           createdAt: string;
-        }) => ({
-          id: msg.id,
-          role: msg.role,
-          content: typeof msg.content === 'string' ? msg.content :
-            (msg.content.text as string) || JSON.stringify(msg.content),
-          toolKind: msg.content.toolKind as 'weather' | 'f1' | 'stock' | undefined,
-          timestamp: new Date(msg.createdAt)
-        }));
+        }) => {
+          let content: string | WeatherToolOutput | F1MatchesToolOutput | StockPriceToolOutput;
+          let toolKind: 'weather' | 'f1' | 'stock' | undefined;
+
+          if (msg.role === 'tool') {
+            try {
+              const parsedContent = typeof msg.content === 'string' ? JSON.parse(msg.content) : msg.content;
+              content = parsedContent;
+              toolKind = parsedContent.toolKind as 'weather' | 'f1' | 'stock';
+            } catch (e) {
+              console.error('Failed to parse tool message:', msg.content);
+              content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+            }
+          } else {
+            content = typeof msg.content === 'string' ? msg.content :
+              (msg.content.text as string) || JSON.stringify(msg.content);
+          }
+
+          return {
+            id: msg.id,
+            role: msg.role,
+            content,
+            toolKind,
+            timestamp: new Date(msg.createdAt)
+          };
+        });
         setMessages(hydratedMessages);
-        if (hydratedMessages.length > 0) {
-          toast.success(`Loaded ${hydratedMessages.length} messages`);
-        }
+       
       } else {
         toast.error("Failed to load chat messages");
       }
@@ -243,16 +282,7 @@ Be conversational and helpful in your responses.`;
       const hasSummary = apiMessages.some(msg => msg.role === 'user' && msg.content.startsWith('[Previous conversation context:'));
       const recentMessagesCount = apiMessages.filter(msg => msg.role !== 'system' && !msg.content.startsWith('[Previous conversation context:')).length - 1;
 
-      if (hasSystemPrompt && hasSummary) {
-        toast.success(`Using system prompt + conversation summary + ${recentMessagesCount} recent messages`);
-      } else if (hasSystemPrompt) {
-        toast.success(`Using system prompt + ${recentMessagesCount} recent messages`);
-      } else if (hasSummary) {
-        toast.success(`Using conversation summary + ${recentMessagesCount} recent messages`);
-      } else {
-        toast.success(`Using ${recentMessagesCount} recent messages`);
-      }
-
+  
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
@@ -285,7 +315,6 @@ Be conversational and helpful in your responses.`;
         data: any;
       }> = [];
 
-      // Find this section in sendMessage function and replace:
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -303,27 +332,23 @@ Be conversational and helpful in your responses.`;
                 setStreamingContent(fullContent);
               } else if (data.type === 'tool-result') {
                 console.log('Received tool result:', data.toolType, data.data);
-
-                // Store tool results but don't add to messages yet
                 toolResults.push({
                   type: data.toolType,
                   data: data.data
                 });
-              } else if (data.type === 'done') {
-                console.log('Stream complete');
               }
             } catch (error) {
-              console.log('Skip invalid JSON lines:', error)
+              console.log('Skip invalid JSON:', error);
             }
           }
         }
       }
 
-      // After the streaming loop, add all messages at once:
+      // Add all messages at once after streaming completes
       const newMessages: ChatMessage[] = [];
 
-      // Add tool results first
-      for (const toolResult of toolResults) {
+      // Add tool messages
+      toolResults.forEach(toolResult => {
         newMessages.push({
           id: `tool-${Date.now()}-${Math.random()}`,
           role: 'tool',
@@ -331,9 +356,9 @@ Be conversational and helpful in your responses.`;
           toolKind: toolResult.type,
           timestamp: new Date()
         });
-      }
+      });
 
-      // Add assistant response
+      // Add assistant message
       if (fullContent.trim()) {
         newMessages.push({
           id: Date.now().toString(),
@@ -343,34 +368,29 @@ Be conversational and helpful in your responses.`;
         });
       }
 
-      // Add all messages at once to prevent flickering
-      if (newMessages.length > 0) {
-        setMessages(prev => [...prev, ...newMessages]);
-      }
-
+      setMessages(prev => [...prev, ...newMessages]);
       setStreamingContent("");
 
       // Persist messages
       try {
+       
         await appendMessage({
           chatId: currentChatId,
           role: 'user',
           content: { text: originalInput }
         });
-
-        // Persist tool results first
+ 
         for (const toolResult of toolResults) {
           await appendMessage({
             chatId: currentChatId,
             role: 'tool',
-            content: {
-              toolKind: toolResult.type,
-              ...toolResult.data
-            }
+            content: JSON.stringify({
+              ...toolResult.data,
+              toolKind: toolResult.type
+            })
           });
         }
-
-        // Then persist assistant response
+ 
         if (fullContent.trim()) {
           await appendMessage({
             chatId: currentChatId,
@@ -378,12 +398,12 @@ Be conversational and helpful in your responses.`;
             content: { text: fullContent }
           });
         }
-
-        toast.success("Messages saved successfully");
+ 
       } catch (error) {
         console.error("Failed to persist messages:", error);
         toast.error("Failed to save messages. Your conversation may not be preserved.");
       }
+
     } catch (error) {
       console.error("Error:", error);
       const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred";
