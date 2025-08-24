@@ -36,6 +36,8 @@ export const chatWithMessagesDTOSchema = z.object({
   title: z.string(),
   createdAt: z.date(),
   messages: z.array(messageDTOSchema),
+  error: z.string().optional(),
+
 })
  
 export const weatherToolOutputSchema = z.object({
@@ -45,6 +47,8 @@ export const weatherToolOutputSchema = z.object({
   icon: z.string(),
   humidity: z.number(),
   windKph: z.number(),
+  error: z.string().optional(),
+
 })
 
 export const f1MatchesToolOutputSchema = z.object({
@@ -55,6 +59,8 @@ export const f1MatchesToolOutputSchema = z.object({
   country: z.string(),
   date: z.string(),
   time: z.string().optional(),
+  error: z.string().optional(),
+
 })
 
 export const stockPriceToolOutputSchema = z.object({
@@ -62,8 +68,11 @@ export const stockPriceToolOutputSchema = z.object({
   price: z.number(),
   change: z.number().optional(),
   changePercent: z.number().optional(),
+  error: z.string().optional(),
+
 })
 
+ 
  
 export type CreateChatInput = z.infer<typeof createChatInputSchema>
 export type AppendMessageInput = z.infer<typeof appendMessageInputSchema>
@@ -72,4 +81,4 @@ export type MessageDTO = z.infer<typeof messageDTOSchema>
 export type ChatWithMessagesDTO = z.infer<typeof chatWithMessagesDTOSchema>
 export type WeatherToolOutput = z.infer<typeof weatherToolOutputSchema>
 export type F1MatchesToolOutput = z.infer<typeof f1MatchesToolOutputSchema>
-export type StockPriceToolOutput = z.infer<typeof stockPriceToolOutputSchema>
+export type StockPriceToolOutput = z.infer<typeof stockPriceToolOutputSchema> 

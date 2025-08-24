@@ -15,7 +15,11 @@ export default function RaceCard({ race }: RaceCardProps) {
       day: 'numeric'
     });
   };
-
+  if (race?.error) {
+    return <div>
+      {race?.error}
+    </div>
+  }
   return (
     <Card className="w-full max-w-sm">
       <CardHeader>

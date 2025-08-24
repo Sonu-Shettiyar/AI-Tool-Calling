@@ -7,7 +7,12 @@ interface WeatherCardProps {
 }
 
 export default function WeatherCard({ weather, ...props }: WeatherCardProps) {
-  console.log({weather, props},'pppp')
+
+  if (weather?.error) {
+    return <div>
+      {weather?.error}
+    </div>
+  }
   return (
     <Card className="w-full max-w-sm">
       <CardHeader className="text-center">
