@@ -120,7 +120,7 @@ export async function getChat(id: string): Promise<ChatWithMessagesDTO> {
     throw new Error("Chat not found");
   }
 
-  if (chat.userId !== userId) {
+  if (chat.userId != userId) {
     throw new Error("Unauthorized: Access denied to this chat");
   }
 
@@ -166,7 +166,7 @@ export async function appendMessage(input: AppendMessageInput): Promise<MessageD
     throw new Error("Chat not found");
   }
 
-  if (chat.userId !== userId) {
+  if (chat.userId != userId) {
     throw new Error("Unauthorized: Access denied to this chat");
   }
 

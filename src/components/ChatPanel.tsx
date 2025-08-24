@@ -47,7 +47,7 @@ export default function ChatPanel({ initialChats, selectedChatId, initialMessage
   const SUMMARY_CONFIG = {
     maxRecentMessages: 5,
     enableSummary: true,
-    minMessagesForSummary: 8,  
+    minMessagesForSummary: 8,
   };
 
   // System prompt configuration to define AI behavior and boundaries
@@ -76,7 +76,7 @@ Be conversational and helpful in your responses.`;
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsInitializing(false);
-    }, 1000);  
+    }, 1000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -120,7 +120,7 @@ Be conversational and helpful in your responses.`;
     setMessages([]);
     try {
       const response = await fetch(`/api/chat/${chatId}/messages`);
-      console.log(response,'repsoen')
+      console.log(response, 'response')
       if (response.ok) {
         const chatMessages = await response.json();
         const hydratedMessages: ChatMessage[] = chatMessages.map((msg: {
@@ -150,7 +150,6 @@ Be conversational and helpful in your responses.`;
 
     router.push(`/chat?chat=${chatId}`);
   };
-
 
   const generateConversationSummary = (messages: ChatMessage[]): string => {
     if (!SUMMARY_CONFIG.enableSummary || messages.length <= SUMMARY_CONFIG.minMessagesForSummary) {
@@ -229,6 +228,7 @@ Be conversational and helpful in your responses.`;
       timestamp: new Date()
     };
 
+    const originalInput = input.trim();
     setMessages(prev => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
@@ -236,13 +236,12 @@ Be conversational and helpful in your responses.`;
     setStreamingContent("");
 
     try {
-      const apiMessages = prepareMessagesForAPI(messages, input.trim());
+      const apiMessages = prepareMessagesForAPI(messages, originalInput);
 
       const systemMessages = apiMessages.filter(msg => msg.role === 'system');
       const hasSystemPrompt = systemMessages.some(msg => !msg.content.startsWith('[Previous conversation context:'));
       const hasSummary = apiMessages.some(msg => msg.role === 'user' && msg.content.startsWith('[Previous conversation context:'));
-      const recentMessagesCount = apiMessages.filter(msg => msg.role !== 'system' && !msg.content.startsWith('[Previous conversation context:')).length - 1; // -1 for new user message
-      const apiPayloadSize = JSON.stringify(apiMessages).length;
+      const recentMessagesCount = apiMessages.filter(msg => msg.role !== 'system' && !msg.content.startsWith('[Previous conversation context:')).length - 1;
 
       if (hasSystemPrompt && hasSummary) {
         toast.success(`Using system prompt + conversation summary + ${recentMessagesCount} recent messages`);
@@ -281,8 +280,10 @@ Be conversational and helpful in your responses.`;
       }
 
       let fullContent = "";
-      let toolResult: WeatherToolOutput | F1MatchesToolOutput | StockPriceToolOutput | null = null;
-      let toolKind: 'weather' | 'f1' | 'stock' | null = null;
+      let toolResults: Array<{
+        type: 'weather' | 'f1' | 'stock';
+        data: any;
+      }> = [];
 
       while (true) {
         const { done, value } = await reader.read();
@@ -295,9 +296,29 @@ Be conversational and helpful in your responses.`;
           if (line.startsWith('data: ')) {
             try {
               const data = JSON.parse(line.slice(6));
+
               if (data.type === 'text-delta') {
                 fullContent += data.delta;
                 setStreamingContent(fullContent);
+              } else if (data.type === 'tool-result') {
+                console.log('Received tool result:', data.toolType, data.data);
+                toolResults.push({
+                  type: data.toolType,
+                  data: data.data
+                });
+
+                // Immediately add the tool result as a message
+                const toolMessage: ChatMessage = {
+                  id: `tool-${Date.now()}-${Math.random()}`,
+                  role: 'tool',
+                  content: data.data,
+                  toolKind: data.toolType,
+                  timestamp: new Date()
+                };
+
+                setMessages(prev => [...prev, toolMessage]);
+              } else if (data.type === 'done') {
+                console.log('Stream complete, final tool results:', data.toolResults);
               }
             } catch (error) {
               console.log('Skip invalid JSON lines:', error)
@@ -306,86 +327,51 @@ Be conversational and helpful in your responses.`;
         }
       }
 
-      const assistantMessage: ChatMessage = {
-        id: Date.now().toString(),
-        role: 'assistant',
-        content: fullContent,
-        timestamp: new Date()
-      };
-      const lowerContent = fullContent.toLowerCase();
-      if (lowerContent.includes('weather') || lowerContent.includes('temperature') || lowerContent.includes('humidity')) {
-
-        toolResult = {
-          location: "Location from response",
-          tempC: 0,
-          description: "Weather description",
-          icon: "unknown",
-          humidity: 0,
-          windKph: 0
-        } as WeatherToolOutput;
-        toolKind = 'weather';
-      } else if (lowerContent.includes('F1') || lowerContent.includes('race') || lowerContent.includes('circuit')) {
-        toolResult = {
-          season: "2024",
-          round: 1,
-          raceName: "Race from response",
-          circuit: "Circuit name",
-          country: "Country",
-          date: new Date().toISOString().split('T')[0]
-        } as F1MatchesToolOutput;
-        toolKind = 'f1';
-      } else if (lowerContent.includes('stock') || lowerContent.includes('price') || lowerContent.includes('market') || lowerContent.includes('AAPL')) {
-        toolResult = {
-          symbol: "SYMBOL",
-          price: 0
-        } as StockPriceToolOutput;
-        toolKind = 'stock';
-      }
-
-      const finalMessages = [assistantMessage];
-
-      if (toolResult && toolKind) {
-        const toolMessage: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          role: 'tool',
-          content: toolResult,
-          toolKind,
+      // Add the assistant's response
+      if (fullContent.trim()) {
+        const assistantMessage: ChatMessage = {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: fullContent,
           timestamp: new Date()
         };
-        finalMessages.push(toolMessage);
+        setMessages(prev => [...prev, assistantMessage]);
       }
 
-      setMessages(prev => [...prev, ...finalMessages]);
       setStreamingContent("");
 
+      // Persist messages
       try {
         await appendMessage({
           chatId: currentChatId,
           role: 'user',
-          content: { text: input.trim() }
+          content: { text: originalInput }
         });
 
-        await appendMessage({
-          chatId: currentChatId,
-          role: 'assistant',
-          content: { text: fullContent }
-        });
+        if (fullContent.trim()) {
+          await appendMessage({
+            chatId: currentChatId,
+            role: 'assistant',
+            content: { text: fullContent }
+          });
+        }
 
-        if (toolResult && toolKind) {
+        // Persist tool results
+        for (const toolResult of toolResults) {
           await appendMessage({
             chatId: currentChatId,
             role: 'tool',
             content: {
-              toolKind,
-              data: toolResult
+              toolKind: toolResult.type,
+              data: toolResult.data
             }
           });
         }
 
-        toast.success("Message saved successfully");
+        toast.success("Messages saved successfully");
       } catch (error) {
         console.error("Failed to persist messages:", error);
-        toast.error("Failed to save message. Your conversation may not be preserved.");
+        toast.error("Failed to save messages. Your conversation may not be preserved.");
       }
 
     } catch (error) {
@@ -405,9 +391,8 @@ Be conversational and helpful in your responses.`;
   };
 
   const renderMessage = (message: ChatMessage) => {
-      
     if (message.role === 'tool' && message.toolKind) {
-      console.log(message,'message')
+      console.log('Rendering tool message:', message.toolKind, message);
       switch (message.toolKind) {
         case 'weather':
           return <WeatherCard weather={message.content as WeatherToolOutput} />;
@@ -417,7 +402,7 @@ Be conversational and helpful in your responses.`;
           return <PriceCard stock={message.content as StockPriceToolOutput} />;
         default:
           return <div className="text-gray-600">
-            Something Went Wrong...!
+            Tool result received: {JSON.stringify(message.content)}
           </div>;
       }
     }
@@ -601,35 +586,47 @@ Be conversational and helpful in your responses.`;
 
         {/* Input */}
         <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
-          <div className="flex gap-2">
-            <Input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-              placeholder={currentChatId ? "Type your message..." : 'Select a chat to start messaging'}
-              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 disabled:opacity-50"
-              disabled={isLoading || !currentChatId}
-            />
-            <Button
-              onClick={sendMessage}
-              disabled={isLoading || !input.trim() || !currentChatId}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center space-x-2"
-            >
-              {isLoading ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <span>Sending...</span>
-                </>
-              ) : (
-                <span>Send</span>
-              )}
-            </Button>
-          </div>
+          {
+
+            currentChatId ?
+              <div className="flex gap-2">
+                <Input
+                  ref={inputRef}
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                  placeholder={currentChatId ? "Type your message..." : 'Select a chat to start messaging'}
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 disabled:opacity-50"
+                  disabled={isLoading || !currentChatId}
+                />
+                <Button
+                  onClick={sendMessage}
+                  disabled={isLoading || !input.trim() || !currentChatId}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center space-x-2"
+                >
+                  {isLoading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span>Sending...</span>
+                    </>
+                  ) : (
+                    <span>Send</span>
+                  )}
+                </Button>
+              </div> :
+              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                <Button
+                  onClick={createNewChat}
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Create New Chat
+                </Button>
+              </div>
+          }
           {isLoading && (
             <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 text-center">
               Processing your message...

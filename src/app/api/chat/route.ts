@@ -1,7 +1,7 @@
 import { streamText } from 'ai';
 import { google } from '@ai-sdk/google';
 import { z } from 'zod';
- 
+
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { fetchWeather, fetchNextF1, fetchStock } from '@/lib/tools';
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
       );
     }
 
-   const rateLimitResult = await defaultRateLimiter.checkLimit(session.user.id);
+    const rateLimitResult = await defaultRateLimiter.checkLimit(session.user.id);
     if (!rateLimitResult.success) {
       const resetTime = new Date(rateLimitResult.resetTime).toISOString();
       return new Response(
@@ -49,24 +49,20 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    
     const { messages } = chatInputSchema.parse(body);
 
     const lastMessage = messages[messages.length - 1];
-    
     if (lastMessage.role !== 'user') {
       return new Response('Last message must be from user', { status: 400 });
     }
 
     const model = google('gemini-1.5-flash');
 
-
- 
     const conversation = messages.map(msg => ({
       role: msg.role as 'user' | 'assistant' | 'system',
       content: msg.content,
     }));
- 
+
     const enhancedSystemPrompt = {
       role: 'system' as const,
       content: `You are a helpful AI assistant with access to real-time tools. You MUST follow these rules:
@@ -82,13 +78,11 @@ Available tools:
 - getF1Matches: For Formula 1 race schedules and information  
 - getStockPrice: For current stock prices and market data
 
-Example: If someone asks "What's the weather in London?", you MUST call getWeather("London") first, then respond with the data and ask follow-up questions like "Would you like to know the forecast for tomorrow?" or "Is there anything specific about the weather you'd like to know?"`
+Example: If someone asks "What's the weather in London?", you MUST call getWeather("London") first, then respond with the data and ask follow-up questions.`
     };
 
-    
     const enhancedConversation = [enhancedSystemPrompt, ...conversation];
 
-   
     const result = await streamText({
       model,
       messages: enhancedConversation,
@@ -145,42 +139,75 @@ Example: If someone asks "What's the weather in London?", you MUST call getWeath
       }
     });
 
-  
+    // Create a readable stream that handles both text and tool results
     const stream = new ReadableStream({
       async start(controller) {
         try {
           let deltaCount = 0;
-           
-          for await (const delta of result.textStream) {
-            deltaCount++;
-            const chunk = `data: ${JSON.stringify({
-              type: 'text-delta',
-              delta: delta,
-              usage: result.usage,
-            })}\n\n`;
-            controller.enqueue(new TextEncoder().encode(chunk));
+          let toolResults: Array<{
+            type: 'weather' | 'f1' | 'stock';
+            data: any;
+          }> = [];
+
+          // Process the AI response
+          for await (const delta of result.fullStream) {
+            if (delta.type === 'text-delta') {
+              deltaCount++;
+              console.log(delta,'delta at line:156')
+              const chunk = `data: ${JSON.stringify({
+                type: 'text-delta',
+                delta: delta.textDelta,
+              })}\n\n`;
+              controller.enqueue(new TextEncoder().encode(chunk));
+            } else if (delta.type === 'tool-call') {
+              console.log('Tool call detected:', delta.toolName);
+              // Tool call is happening, we'll get the result in tool-result
+            } else if (delta.type === 'tool-result') {
+              console.log('Tool result received:', delta.toolName, delta.output);
+              
+              // Store tool results to send later
+              let toolType: 'weather' | 'f1' | 'stock';
+              if (delta.toolName === 'getWeather') {
+                toolType = 'weather';
+              } else if (delta.toolName === 'getF1Matches') {
+                toolType = 'f1';
+              } else if (delta.toolName === 'getStockPrice') {
+                toolType = 'stock';
+              } else {
+                continue; // Skip unknown tools
+              }
+
+              toolResults.push({
+                type: toolType,
+                data: delta.output
+              });
+
+              // Send tool result immediately
+              const toolChunk = `data: ${JSON.stringify({
+                type: 'tool-result',
+                toolType,
+                data: delta.output
+              })}\n\n`;
+              controller.enqueue(new TextEncoder().encode(toolChunk));
+            }
           }
 
-       
-          if (deltaCount === 0) {
-            const fallbackChunk = `data: ${JSON.stringify({
-              type: 'text-delta',
-              delta: "I'm processing your request. Let me gather the information you need and I'll be back with a detailed response and some follow-up questions to help you further!",
-              usage: result.usage,
-            })}\n\n`;
-            controller.enqueue(new TextEncoder().encode(fallbackChunk));
-          }
- 
+          // Send final chunk
           const finalChunk = `data: ${JSON.stringify({
             type: 'done',
-            usage: result.usage,
+            toolResults
           })}\n\n`;
           controller.enqueue(new TextEncoder().encode(finalChunk));
           
           controller.close();
         } catch (error) {
           console.error('Streaming error:', error);
-          controller.error(error);
+          const errorChunk = `data: ${JSON.stringify({
+            type: 'error',
+            error: 'Something went wrong processing your request'
+          })}\n\n`;
+          controller.enqueue(new TextEncoder().encode(errorChunk));
+          controller.close();
         }
       },
     });
