@@ -110,7 +110,7 @@ Be conversational and helpful in your responses.`;
           role: msg.role,
           content,
           toolKind,
-          timestamp: new Date(msg.createdAt)
+          timestamp: msg.createdAt instanceof Date ? msg.createdAt : new Date(msg.createdAt)
         };
       });
       setMessages(hydratedMessages);
@@ -150,7 +150,7 @@ Be conversational and helpful in your responses.`;
           id: string;
           role: "user" | "assistant" | "tool";
           content: Record<string, unknown> | string;
-          createdAt: string;
+          createdAt: string | Date;
         }) => {
           let content: string | WeatherToolOutput | F1MatchesToolOutput | StockPriceToolOutput;
           let toolKind: 'weather' | 'f1' | 'stock' | undefined;
@@ -174,7 +174,7 @@ Be conversational and helpful in your responses.`;
             role: msg.role,
             content,
             toolKind,
-            timestamp: new Date(msg.createdAt)
+            timestamp: msg.createdAt instanceof Date ? msg.createdAt : new Date(msg.createdAt)
           };
         });
         setMessages(hydratedMessages);
@@ -304,7 +304,7 @@ Be conversational and helpful in your responses.`;
       }
 
       let fullContent = "";
-      const toolResults: Array<{
+      let toolResults: Array<{
         type: 'weather' | 'f1' | 'stock';
         data: any;
       }> = [];
@@ -346,7 +346,7 @@ Be conversational and helpful in your responses.`;
         newMessages.push({
           id: `tool-${Date.now()}-${Math.random()}`,
           role: 'tool',
-          content: toolResult.data,
+          content: toolResult.data.data || toolResult.data, // Handle both new and old structure
           toolKind: toolResult.type,
           timestamp: new Date()
         });
@@ -375,14 +375,14 @@ Be conversational and helpful in your responses.`;
         });
  
         for (const toolResult of toolResults) {
-          await appendMessage({
-            chatId: currentChatId,
-            role: 'tool',
-            content: JSON.stringify({
-              ...toolResult.data,
-              toolKind: toolResult.type
-            })
-          });
+                  await appendMessage({
+          chatId: currentChatId,
+          role: 'tool',
+          content: {
+            ...(toolResult.data?.data || toolResult.data),  
+            toolKind: toolResult.type
+          }
+        });
         }
  
         if (fullContent.trim()) {

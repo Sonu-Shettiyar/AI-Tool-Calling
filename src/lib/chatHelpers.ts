@@ -15,31 +15,31 @@ import {
   type ChatWithMessagesDTO,
 } from "./schemas";
 
-
+ 
 async function getCurrentUserId(): Promise<string> {
-
+ 
   const session = await getServerSession(authOptions) as { user?: { id: string } } | null;
-
-
+  
+  
   if (!session?.user?.id) {
-
+     
     throw new Error("Unauthorized: User not authenticated");
   }
-
-
+  
+ 
   return session.user.id;
 }
 
-
+ 
 export async function createChat(input: CreateChatInput): Promise<ChatDTO> {
-
+  
   const userId = await getCurrentUserId();
   const validatedInput = createChatInputSchema.parse(input);
-
-
+   
+  
   const title = validatedInput.title || `Chat ${new Date().toLocaleTimeString()}`;
-
-
+  
+  
   try {
     const [newChat] = await db
       .insert(chats)
@@ -48,26 +48,26 @@ export async function createChat(input: CreateChatInput): Promise<ChatDTO> {
         title,
       })
       .returning();
-
-
+     
+    
     const result = {
       id: newChat.id,
       title: newChat.title,
       createdAt: newChat.createdAt,
       messageCount: 0,
     };
-
+     
     return result;
   } catch (error) {
     console.error("createChat: Database insert failed:", error);
     throw error;
   }
 }
-
+ 
 export async function listChats(): Promise<ChatDTO[]> {
-
+  
   const userId = await getCurrentUserId();
-
+  
   try {
     const userChats = await db
       .select({
@@ -78,14 +78,14 @@ export async function listChats(): Promise<ChatDTO[]> {
       .from(chats)
       .where(eq(chats.userId, userId))
       .orderBy(desc(chats.createdAt));
-
+    
     const chatsWithCounts = await Promise.all(
       userChats.map(async (chat) => {
         const messageCount = await db
           .select({ count: messages.id })
           .from(messages)
           .where(eq(messages.chatId, chat.id));
-
+        
         return {
           ...chat,
           messageCount: messageCount.length,
@@ -106,10 +106,10 @@ export async function listChats(): Promise<ChatDTO[]> {
     throw error;
   }
 }
-
+ 
 export async function getChat(id: string): Promise<ChatWithMessagesDTO> {
   const userId = await getCurrentUserId();
-
+  
   const [chat] = await db
     .select()
     .from(chats)
@@ -141,21 +141,21 @@ export async function getChat(id: string): Promise<ChatWithMessagesDTO> {
     createdAt: chat.createdAt,
     messages: chatMessages.map(msg => ({
       ...msg,
-      content: msg.content as string
+      content: msg.content as Record<string, unknown>
     })),
   };
 }
-
+ 
 export async function appendMessage(input: AppendMessageInput): Promise<MessageDTO> {
   const userId = await getCurrentUserId();
-
+  
   let messageInput = input;
   if (Array.isArray(input)) {
     messageInput = input[0];
   }
-
+  
   const validatedInput = messageInput;
-
+  
   const [chat] = await db
     .select()
     .from(chats)
@@ -181,11 +181,11 @@ export async function appendMessage(input: AppendMessageInput): Promise<MessageD
 
   revalidatePath(`/chat/${validatedInput.chatId}`);
   revalidatePath("/chat");
-
+  
   return {
     id: newMessage.id,
     role: newMessage.role,
-    content: newMessage.content as string,
+    content: newMessage.content as Record<string, unknown>,
     createdAt: newMessage.createdAt,
   };
 }

@@ -3,7 +3,7 @@ import { z } from 'zod'
  
 export const roleSchema = z.enum(['user', 'assistant', 'tool'])
 
-export const contentSchema = z.any();
+export const contentSchema = z.record(z.string(), z.unknown())
 
  
 export const createChatInputSchema = z.object({
@@ -59,8 +59,11 @@ export const f1MatchesToolOutputSchema = z.object({
   country: z.string(),
   date: z.string(),
   time: z.string().optional(),
+  location: z.string().optional(),
+  driverStandings: z.array(z.any()).nullable().optional(),
+  constructorStandings: z.array(z.any()).nullable().optional(),
+  raceDetails: z.any().nullable().optional(),
   error: z.string().optional(),
-
 })
 
 export const stockPriceToolOutputSchema = z.object({
