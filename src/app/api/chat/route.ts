@@ -156,14 +156,14 @@ Example: If someone asks "What's the weather in London?", you MUST call getWeath
               console.log(delta,'delta at line:156')
               const chunk = `data: ${JSON.stringify({
                 type: 'text-delta',
-                delta: delta.textDelta,
+                delta: delta.text,
               })}\n\n`;
               controller.enqueue(new TextEncoder().encode(chunk));
             } else if (delta.type === 'tool-call') {
               console.log('Tool call detected:', delta.toolName);
               // Tool call is happening, we'll get the result in tool-result
             } else if (delta.type === 'tool-result') {
-              console.log('Tool result received:', delta.toolName, delta.output);
+              console.log('Tool result received:', delta.toolName, delta);
               
               // Store tool results to send later
               let toolType: 'weather' | 'f1' | 'stock';
