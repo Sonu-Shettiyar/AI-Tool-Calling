@@ -304,7 +304,7 @@ Be conversational and helpful in your responses.`;
       }
 
       let fullContent = "";
-      let toolResults: Array<{
+      const toolResults: Array<{
         type: 'weather' | 'f1' | 'stock';
         data: any;
       }> = [];
