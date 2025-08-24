@@ -6,7 +6,7 @@ interface WeatherCardProps {
   weather: WeatherToolOutput;
 }
 
-export default function WeatherCard({ weather, ...props }: WeatherCardProps) {
+export default function WeatherCard({ weather }: WeatherCardProps) {
 
   if (weather?.error) {
     return <div>

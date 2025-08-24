@@ -86,7 +86,7 @@ Be conversational and helpful in your responses.`;
         id: string;
         role: "user" | "assistant" | "tool";
         content: Record<string, unknown> | string;
-        createdAt: string;
+        createdAt: string | Date;
       }) => {
         let content: string | WeatherToolOutput | F1MatchesToolOutput | StockPriceToolOutput;
         let toolKind: 'weather' | 'f1' | 'stock' | undefined;
@@ -97,7 +97,7 @@ Be conversational and helpful in your responses.`;
             content = parsedContent;
             toolKind = parsedContent.toolKind as 'weather' | 'f1' | 'stock';
           } catch (e) {
-            console.error('Failed to parse tool message:', msg.content);
+            console.error('Failed to parse tool message:', msg.content,e);
             content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
           }
         } else {
@@ -161,7 +161,7 @@ Be conversational and helpful in your responses.`;
               content = parsedContent;
               toolKind = parsedContent.toolKind as 'weather' | 'f1' | 'stock';
             } catch (e) {
-              console.error('Failed to parse tool message:', msg.content);
+              console.error('Failed to parse tool message:', msg.content,e);
               content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
             }
           } else {
@@ -276,12 +276,6 @@ Be conversational and helpful in your responses.`;
 
     try {
       const apiMessages = prepareMessagesForAPI(messages, originalInput);
-
-      const systemMessages = apiMessages.filter(msg => msg.role === 'system');
-      const hasSystemPrompt = systemMessages.some(msg => !msg.content.startsWith('[Previous conversation context:'));
-      const hasSummary = apiMessages.some(msg => msg.role === 'user' && msg.content.startsWith('[Previous conversation context:'));
-      const recentMessagesCount = apiMessages.filter(msg => msg.role !== 'system' && !msg.content.startsWith('[Previous conversation context:')).length - 1;
-
   
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -310,7 +304,7 @@ Be conversational and helpful in your responses.`;
       }
 
       let fullContent = "";
-      let toolResults: Array<{
+      const toolResults: Array<{
         type: 'weather' | 'f1' | 'stock';
         data: any;
       }> = [];

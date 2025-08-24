@@ -143,8 +143,7 @@ Example: If someone asks "What's the weather in London?", you MUST call getWeath
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          let deltaCount = 0;
-          let toolResults: Array<{
+          const toolResults: Array<{
             type: 'weather' | 'f1' | 'stock';
             data: any;
           }> = [];
@@ -152,7 +151,6 @@ Example: If someone asks "What's the weather in London?", you MUST call getWeath
           // Process the AI response
           for await (const delta of result.fullStream) {
             if (delta.type === 'text-delta') {
-              deltaCount++;
               console.log(delta,'delta at line:156')
               const chunk = `data: ${JSON.stringify({
                 type: 'text-delta',

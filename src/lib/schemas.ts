@@ -3,7 +3,7 @@ import { z } from 'zod'
  
 export const roleSchema = z.enum(['user', 'assistant', 'tool'])
 
-export const contentSchema = z.record(z.string(), z.unknown())
+export const contentSchema = z.any();
 
  
 export const createChatInputSchema = z.object({

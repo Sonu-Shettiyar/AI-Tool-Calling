@@ -120,7 +120,7 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async signIn({ user, account, profile }: any) {
+    async signIn({ user,  profile }: any) {
       if (user && !user.id) {
         if (profile?.id) {
           (user as any).id = profile.id;
